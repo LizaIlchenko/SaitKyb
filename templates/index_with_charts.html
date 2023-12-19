@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AllOut_Agent</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #d0f4ea; /* Светло-мятный фон */
+            font-family: Arial, sans-serif;
+            margin: 0;
+        }
+
+        #header {
+            background-color: #16a085; /* Цвет хэдера */
+            padding: 10px;
+            text-align: right;
+            color: white;
+            font-size: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #tabs {
+            background-color: #3498db; /* Цвет фона вкладок */
+            overflow: hidden;
+        }
+
+        .tab {
+            float: left;
+            margin-right: 5px;
+        }
+
+        .tab a {
+            display: block;
+            color: white;
+            text-align: center;
+            padding: 14px 16px;
+            text-decoration: none;
+            font-size: 18px;
+        }
+
+        .tab a:hover {
+            background-color: #2980b9; /* Цвет при наведении */
+        }
+
+        #video-container, #graph-container {
+            margin: 20px;
+            text-align: center;  /* Выравнивание по центру */
+        }
+
+        #video-feed, #graph {
+            width: 70%;  /* Ширина видео и графика 70% от родительского контейнера */
+            display: none;  /* Изначально скрываем видео и график */
+        }
+
+        #chart-container {
+            display: flex;
+            /*justify-content: space-between;  Уберите это свойство, чтобы графики начинались с самого края */
+            align-items: center;  /* Выравнивание по центру */
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ccc;
+            margin: 0 10px; /* Добавлен отступ справа и слева для графиков */
+        }
+
+        #status {
+            text-align: center;
+            font-size: 18px;
+            margin-top: 10px;
+            color: #3498db; /* Цвет статуса (голубой) */
+        }
+
+        /* Стили для цветных кружков */
+        .circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 5px;
+        }
+
+        .green-circle {
+            background-color: green;
+        }
+
+        .red-circle {
+            background-color: red;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <div id="tabs">
+            <div class="tab">
+                <a href="#" onclick="openTab('Video')">Видеопоток</a>
+            </div>
+            <div class="tab">
+                <a href="#" onclick="openTab('Graph')">Графики</a>
+            </div>
+        </div>
+        AllOut_Agent
+    </div>
+
+    <div id="video-container">
+        <img id="video-feed" src="{{ url_for('video_feed') }}">
+    </div>
+
+    <div id="graph-container" style="display: none;">
+        <div id="chart-container">
+            <canvas id="current-chart" width="400" height="200"></canvas>
+            <canvas id="voltage-chart" width="400" height="200"></canvas>
+        </div>
+        <div id="status">
+            Status: <span id="status-text"></span>
+            <div id="status-indicator" class="circle"></div>
+        </div>
+    </div>
+
+    <script>
+        function updateStatus() {
+            fetch('/video_feed/status')
+                .then(response => response.text())
+                .then(status => {
+                    document.getElementById('status-text').innerText = status;
+                    // Обновляем цвет кружка в зависимости от статуса
+                    const statusIndicator = document.getElementById('status-indicator');
+                    if (status === 'YES, TRUE') {
+                        statusIndicator.className = 'circle green-circle';
+                    } else {
+                        statusIndicator.className = 'circle red-circle';
+                    }
+                });
+        }
+
+        // Обновление видеопотока
+        function updateVideo() {
+            const videoFeed = document.getElementById('video-feed');
+            const randomParam = Math.floor(Math.random() * 1000000); // Случайный параметр
+            videoFeed.src = "{{ url_for('video_feed') }}?random=" + randomParam;
+            updateStatus(); // Обновление статуса
+        }
+
+        // Открытие вкладок
+        function openTab(tabName) {
+            const tabs = document.querySelectorAll('.tab a');
+            tabs.forEach(tab => {
+                tab.style.backgroundColor = '';
+            });
+
+            const videoContainer = document.getElementById('video-container');
+            const graphContainer = document.getElementById('graph-container');
+            const videoFeed = document.getElementById('video-feed');
+            const graph = document.getElementById('graph');
+
+            if (tabName === 'Video') {
+                videoContainer.style.display = 'block';
+                graphContainer.style.display = 'none';
+                videoFeed.style.display = 'block';
+                graph.style.display = 'none';
+            } else if (tabName === 'Graph') {
+                videoContainer.style.display = 'none';
+                graphContainer.style.display = 'block';
+                videoFeed.style.display = 'none';
+                graph.style.display = 'block';
+            }
+        }
+
+        // Обновление графиков
+        function updateCharts() {
+            fetch("/chart_data")
+                .then(response => response.json())
+                .then(data => {
+                    // Получение контекста для графика тока
+                    var currentCtx = document.getElementById('current-chart').getContext('2d');
+                    var currentChart = new Chart(currentCtx, {
+                        type: 'line',
+                        data: {
+                            labels: data.current_labels,
+                            datasets: [{
+                                label: 'Current',
+                                data: data.current_values,
+                                borderColor: 'blue',
+                                borderWidth: 2,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+
+                    // Получение контекста для графика напряжения
+                    var voltageCtx = document.getElementById('voltage-chart').getContext('2d');
+                    var voltageChart = new Chart(voltageCtx, {
+                        type: 'line',
+                        data: {
+                            labels: data.voltage_labels,
+                            datasets: [{
+                                label: 'Voltage',
+                                data: data.voltage_values,
+                                borderColor: 'red',
+                                borderWidth: 2,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                })
+                .catch(error => console.error('Error fetching chart data:', error));
+        }
+
+        setInterval(updateVideo, 5000); // Обновление видео каждые 5 секунд
+        setInterval(updateCharts, 5000); // Обновление графиков каждые 5 секунд
+    </script>
+</body>
+</html>
