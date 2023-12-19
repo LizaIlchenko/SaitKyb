@@ -116,7 +116,7 @@ chart_data_generator = generate_chart_data()
 # Маршруты Flask
 @app.route('/')
 def index():
-    return render_template('index_with_charts.html')
+    return render_template('index_with.html')
 
 @app.route('/video_feed')
 def video_feed():
@@ -133,3 +133,4 @@ def chart_data():
 
 if __name__ == '__main__':
     app.run(host='192.168.56.1', port=5000, debug=True)
+
